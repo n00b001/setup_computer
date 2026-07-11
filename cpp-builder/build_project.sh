@@ -187,10 +187,14 @@ else
     warn "no Vulkan toolchain (glslc + libvulkan) — Vulkan backend skipped"
 fi
 
-# ---- OpenBLAS: CPU BLAS acceleration, always safe to add when present ----
-# (grouped so precedence is "ldconfig-hit OR pkgconfig-hit", not (A||B)&&C)
-if ldconfig -p 2>/dev/null | grep -q libopenblas \
-   || { has pkg-config && pkg-config --exists openblas 2>/dev/null; }; then
+# ---- CPU BLAS (OpenBLAS): only as the CPU-only fallback ----
+# A GPU build already does its GEMMs on the GPU via cuBLAS (CUDA) / hipBLAS
+# (ROCm); OpenBLAS is a CPU-only backend and adds nothing on a GPU box, so
+# enable it only when there is no GPU backend. (grouped so precedence is
+# "ldconfig-hit OR pkgconfig-hit", not (A||B)&&C)
+if [[ "$GPU_BACKEND" == "none" ]] \
+   && { ldconfig -p 2>/dev/null | grep -q libopenblas \
+        || { has pkg-config && pkg-config --exists openblas 2>/dev/null; }; }; then
     ACCEL_FLAGS+=(-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS)
     ACCEL_SUMMARY+=("OpenBLAS (CPU)")
 else
