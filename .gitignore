@@ -14,3 +14,6 @@ logs/
 # cpp-builder outputs
 cpp-builder/build/
 **/build-*.log
+
+# personal feedback/scratch notes
+my-logs
