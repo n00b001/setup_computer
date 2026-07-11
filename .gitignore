@@ -1,0 +1,16 @@
+# macOS / SMB AppleDouble sidecars
+._*
+.DS_Store
+
+# tool + session operational state (not source)
+.omc/
+.remember/
+.claude/
+logs/
+
+# timestamped backups written by setup.sh (e.g. ~/.zshrc.bak.<ts>)
+*.bak.*
+
+# cpp-builder outputs
+cpp-builder/build/
+**/build-*.log
