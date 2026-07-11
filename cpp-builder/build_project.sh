@@ -148,6 +148,7 @@ if [[ "$GPU_BACKEND" == "cuda" ]]; then
     _CUDA_HOST_COMPILER="$(command -v g++-13 2>/dev/null || true)"
     [[ -n "$_CUDA_HOST_COMPILER" ]] && ACCEL_FLAGS+=(-DCMAKE_CUDA_HOST_COMPILER="$_CUDA_HOST_COMPILER")
 else
+    ACCEL_FLAGS+=(-DGGML_CUDA=OFF)
     warn "no nvcc on PATH — CUDA/cuBLAS backend skipped"
 fi
 
@@ -169,8 +170,12 @@ if [[ "$GPU_BACKEND" == "hip" ]]; then
     if [[ -e /opt/rocm/include/rocwmma/rocwmma.hpp ]]; then
         ACCEL_FLAGS+=(-DGGML_HIP_ROCWMMA_FATTN=ON)
     fi
-elif [[ "$GPU_BACKEND" != "cuda" ]]; then
-    warn "no ROCm/hipcc found — ROCm/HIP backend skipped"
+else
+    # explicit OFF, not just "absent": a box with both CUDA and ROCm installed
+    # (or a stale build/CMakeCache.txt) would otherwise leave HIP enabled and
+    # fail the HIP compiler test. This is why we set every backend below too.
+    ACCEL_FLAGS+=(-DGGML_HIP=OFF)
+    [[ "$GPU_BACKEND" != "cuda" ]] && warn "no ROCm/hipcc found — ROCm/HIP backend skipped"
 fi
 
 # ---- Vulkan: stacks on top of the GPU backend when its toolchain is present ----
@@ -178,6 +183,7 @@ if has glslc && { has vulkaninfo || ldconfig -p 2>/dev/null | grep -q libvulkan;
     ACCEL_FLAGS+=(-DGGML_VULKAN=ON)
     ACCEL_SUMMARY+=("Vulkan")
 else
+    ACCEL_FLAGS+=(-DGGML_VULKAN=OFF)
     warn "no Vulkan toolchain (glslc + libvulkan) — Vulkan backend skipped"
 fi
 
@@ -187,6 +193,8 @@ if ldconfig -p 2>/dev/null | grep -q libopenblas \
    || { has pkg-config && pkg-config --exists openblas 2>/dev/null; }; then
     ACCEL_FLAGS+=(-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS)
     ACCEL_SUMMARY+=("OpenBLAS (CPU)")
+else
+    ACCEL_FLAGS+=(-DGGML_BLAS=OFF)
 fi
 
 if [[ "$GPU_BACKEND" == "none" ]]; then

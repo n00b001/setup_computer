@@ -365,6 +365,13 @@ export PATH="$HOME/.local/bin:$PATH"
 command -v uv  >/dev/null 2>&1 && eval "$(uv generate-shell-completion zsh)"
 command -v uvx >/dev/null 2>&1 && eval "$(uvx --generate-shell-completion zsh)"
 
+# ── CUDA toolkit on PATH when installed (so nvcc + cuBLAS tools are found) ──
+# Guarded on the dir, so this is a no-op on macOS / non-CUDA machines.
+if [[ -d /usr/local/cuda/bin ]]; then
+  export PATH="/usr/local/cuda/bin:$PATH"
+  export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+fi
+
 # ── replacements ──
 if command -v eza >/dev/null 2>&1; then
   # --sort=modified: oldest at the top, newest at the bottom. It also drops
