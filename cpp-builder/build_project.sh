@@ -339,15 +339,15 @@ BASE_FLAGS=(
 has ccache && BASE_FLAGS+=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
 
 log "Acceleration: ${ACCEL_SUMMARY[*]:-CPU only}"
-log "Configuring…"
+log "Configuring..."
 cmake "${BASE_FLAGS[@]}" \
       ${ACCEL_FLAGS[@]+"${ACCEL_FLAGS[@]}"} \
       ${EXTRA_CMAKE_FLAGS[@]+"${EXTRA_CMAKE_FLAGS[@]}"}
 
-log "Building with $CPU_CORES cores…"
+log "Building with $CPU_CORES cores..."
 cmake --build build --config Release -j "$CPU_CORES"
 
-log "Installing to $INSTALL_PREFIX…"
+log "Installing to $INSTALL_PREFIX..."
 if [[ "$PLATFORM" == macos ]]; then
     cmake --build build --target install               # user-writable prefix, no sudo
 else
