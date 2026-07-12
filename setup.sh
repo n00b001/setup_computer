@@ -251,27 +251,24 @@ for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew \
 done
 unset _brew
 
-# ── completion: fix insecure directories, then init ──
-autoload -Uz compinit compaudit
-
-function fix_compinit_insecure_dirs() {
-  local insecure_dirs=$(compaudit 2>/dev/null)
-  if [[ -n "$insecure_dirs" ]]; then
-    echo "Fixing insecure completion directories..."
-    for dir in ${(f)insecure_dirs}; do
-      chmod 755 "$dir"
-      chmod 755 "$(dirname "$dir")"
-    done
-  fi
-}
-fix_compinit_insecure_dirs
-
-# full compinit if the dump is missing or older than a day, cached -C otherwise
-if [[ ! -e ~/.zcompdump || -n "$(find ~/.zcompdump -mtime +0 2>/dev/null)" ]]; then
-  compinit
-else
+# ── completion: fast start that never blocks on the insecure-files prompt ──
+# compinit security-audits every fpath entry; if one is group/other-writable or
+# owned elsewhere it pops a blocking "[y]/[n]" question on EVERY new tab. A real
+# example here: Homebrew's Ghostty completion is a symlink into the root-owned
+# /Applications/Ghostty.app bundle, which no chmod can make "secure". Two guards
+# make a new tab both fast and prompt-free:
+#   -C : when the cached dump is fresh, skip the audit entirely  -> fast, no prompt
+#   -i : on a rebuild, silently ignore any insecure file          -> no prompt
+# (Running compaudit on every startup, as before, was both slow and unable to fix
+#  a root-owned symlink target anyway.)
+autoload -Uz compinit
+_zdump=("${ZDOTDIR:-$HOME}"/.zcompdump(Nmh-20))
+if (( $#_zdump )); then
   compinit -C
+else
+  compinit -i
 fi
+unset _zdump
 
 zstyle ':completion:*' matcher-list '' 'm:{a-zA-Z}={A-Za-z}'
 zstyle ':completion:*' menu no
