@@ -41,7 +41,7 @@ A curated, opinionated terminal stack — installed, configured, and wired toget
 
 | [git-delta](https://github.com/dandavison/delta) — rich diffs | [eza](https://github.com/eza-community/eza) — modern `ls` | [btop](https://github.com/aristocratos/btop) — resource monitor |
 |:--:|:--:|:--:|
-| ![delta diff](https://user-images.githubusercontent.com/52205/147996902-9829bd3f-cd33-466e-833e-49a6f3ebd623.png) | ![eza listing](https://raw.githubusercontent.com/eza-community/eza/main/docs/images/screenshots.png) | ![btop monitor](https://raw.githubusercontent.com/aristocratos/btop/main/Img/normal.png) |
+| ![delta diff](https://user-images.githubusercontent.com/52205/87230973-412eb900-c381-11ea-8aec-cc200290bd1b.png) | ![eza listing](https://raw.githubusercontent.com/eza-community/eza/main/docs/images/screenshots.png) | ![btop monitor](https://raw.githubusercontent.com/aristocratos/btop/main/Img/normal.png) |
 
 ---
 
