@@ -33,6 +33,18 @@ A curated, opinionated terminal stack — installed, configured, and wired toget
 
 ---
 
+## 📸 Screenshots
+
+| [fzf](https://github.com/junegunn/fzf) — fuzzy history search & file picker | [bat](https://github.com/sharkdp/bat) — syntax-highlighted `cat` |
+|:--:|:--:|
+| ![fzf preview](https://raw.githubusercontent.com/junegunn/i/master/fzf-preview.png) | ![bat syntax highlighting](https://i.imgur.com/rGsdnDe.png) |
+
+| [git-delta](https://github.com/dandavison/delta) — rich diffs | [eza](https://github.com/eza-community/eza) — modern `ls` | [btop](https://github.com/aristocratos/btop) — resource monitor |
+|:--:|:--:|:--:|
+| ![delta diff](https://user-images.githubusercontent.com/52205/87230973-412eb900-c381-11ea-8aec-cc200290bd1b.png) | ![eza listing](https://raw.githubusercontent.com/eza-community/eza/main/docs/images/screenshots.png) | ![btop monitor](https://raw.githubusercontent.com/aristocratos/btop/main/Img/normal.png) |
+
+---
+
 ## 🚀 Quick start
 
 Pick the script for your platform. Each one asks for elevated permission **once**, then runs unattended to completion.
