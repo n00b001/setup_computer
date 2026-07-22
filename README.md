@@ -22,14 +22,14 @@ A single command turns a fresh machine into a fully-equipped terminal workstatio
 
 A curated, opinionated terminal stack — installed, configured, and wired together:
 
-- **Shell & prompt** — `zsh` (POSIX) or PowerShell, with **Starship** (`catppuccin-powerline`) and a **JetBrainsMono Nerd Font** so every icon renders.
-- **Fuzzy everything** — `fzf` + `fzf-tab`: every completion menu, history search (`Ctrl+R`), and file picker (`Ctrl+T`) becomes an instant fuzzy search.
-- **Modern coreutils** — `eza` for `ls`, `bat` for `cat`, `ripgrep` for `grep`, `zoxide` for `cd`, `git-delta` for diffs, `btop` for monitoring.
-- **Signed Git commits** — SSH commit signing routed through the **1Password** SSH agent (Touch ID / Windows Hello), plus `delta` as the pager.
-- **Managed Python** — `uv` installs and pins a default CPython.
-- **Claude Code, fully loaded** — the CLI plus plugins (`oh-my-claudecode`, `starship-claude`, `astral`, `context-mode`, `remember`, `ponytail`, `ty` LSP), `codegraph`, and MCP servers (`playwright`, `puppeteer`).
-- **Usage-limit auto-resume** — `claude-auto-retry` wraps `claude` in `tmux`, watches for the usage-limit message, sleeps until reset, then resumes — with a tmux status-bar indicator and a self-healing background timer. *(POSIX only.)*
-- **GPU `llama.cpp` / `whisper.cpp`** — the optional [`cpp-builder`](docs/cpp-builder.md) clones, builds with the right acceleration backend, and installs in one command.
+- **Shell & prompt** — [zsh](https://www.zsh.org) (POSIX) or PowerShell, with [Starship](https://starship.rs)'s `catppuccin-powerline` preset and a [JetBrainsMono Nerd Font](https://github.com/ryanoasis/nerd-fonts) so every icon renders.
+- **Fuzzy everything** — [fzf](https://github.com/junegunn/fzf) + [fzf-tab](https://github.com/Aloxaf/fzf-tab): every completion menu, history search (`Ctrl+R`), and file picker (`Ctrl+T`) becomes an instant fuzzy search.
+- **Modern coreutils** — [eza](https://github.com/eza-community/eza) for `ls`, [bat](https://github.com/sharkdp/bat) for `cat`, [ripgrep](https://github.com/BurntSushi/ripgrep) for `grep`, [zoxide](https://github.com/ajeetdsouza/zoxide) for `cd`, [git-delta](https://github.com/dandavison/delta) for diffs, [btop](https://github.com/aristocratos/btop) for monitoring.
+- **Signed Git commits** — SSH commit signing routed through the [1Password](https://1password.com) SSH agent (Touch ID / Windows Hello), plus [delta](https://github.com/dandavison/delta) as the pager.
+- **Managed Python** — [uv](https://docs.astral.sh/uv) installs and pins a default CPython.
+- **Claude Code, fully loaded** — [Claude Code](https://docs.claude.com/en/docs/claude-code) plus plugins ([oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [starship-claude](https://github.com/martinemde/starship-claude), [astral](https://github.com/astral-sh/claude-code-plugins), [context-mode](https://github.com/mksglu/context-mode), [remember](https://github.com/Digital-Process-Tools/claude-marketplace), [ponytail](https://github.com/DietrichGebert/ponytail), [ty](https://github.com/ilepn/ty-lsp-claude-code) LSP), [codegraph](https://github.com/colbymchenry/codegraph), and MCP servers ([playwright](https://github.com/microsoft/playwright-mcp), [puppeteer](https://github.com/merajmehrabi/puppeteer-mcp-server)).
+- **Usage-limit auto-resume** — [claude-auto-retry](https://github.com/cheapestinference/claude-auto-retry) wraps `claude` in [tmux](https://github.com/tmux/tmux), watches for the usage-limit message, sleeps until reset, then resumes — with a tmux status-bar indicator and a self-healing background timer. *(POSIX only.)*
+- **GPU [llama.cpp](https://github.com/ggml-org/llama.cpp) / [whisper.cpp](https://github.com/ggml-org/whisper.cpp)** — the optional [`cpp-builder`](docs/cpp-builder.md) clones, builds with the right acceleration backend, and installs in one command.
 
 ---
 
@@ -51,7 +51,7 @@ bash setup.sh
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-> Requires `winget` (built into Windows 10/11 as *App Installer*).
+> Requires [winget](https://github.com/microsoft/winget-cli) (built into Windows 10/11 as *App Installer*).
 
 ### Build `llama.cpp` / `whisper.cpp` (optional, any POSIX machine)
 
@@ -67,8 +67,8 @@ bash cpp-builder/build_project.sh whisper    # whisper.cpp
 | Component | Script | What it does |
 |:--|:--|:--|
 | **Terminal bootstrap (POSIX)** | [`setup.sh`](setup.sh) | 13-stage install + config for macOS / Linux / WSL. The flagship script. |
-| **Terminal bootstrap (Windows)** | [`setup.ps1`](setup.ps1) | 10-stage install + config for native Windows via `winget`. |
-| **C++ builder** | [`cpp-builder/build_project.sh`](cpp-builder/build_project.sh) | One-shot, GPU-accelerated build of `llama.cpp` / `whisper.cpp`. |
+| **Terminal bootstrap (Windows)** | [`setup.ps1`](setup.ps1) | 10-stage install + config for native Windows via winget. |
+| **C++ builder** | [`cpp-builder/build_project.sh`](cpp-builder/build_project.sh) | One-shot, GPU-accelerated build of [llama.cpp](https://github.com/ggml-org/llama.cpp) / [whisper.cpp](https://github.com/ggml-org/whisper.cpp). |
 
 📖 **Deep dives:** [`docs/setup.md`](docs/setup.md) (the bootstrap, stage by stage) · [`docs/cpp-builder.md`](docs/cpp-builder.md) (the builder, acceleration matrix)
 
@@ -78,18 +78,18 @@ bash cpp-builder/build_project.sh whisper    # whisper.cpp
 
 ### Command-line tools (all platforms)
 
-`starship` · `bat` · `fzf` · `ripgrep` · `eza` · `jq` · `gh` · `git` · `git-delta` · `zoxide` · `btop` · `node` · `tmux`<sup>POSIX</sup> · `uv` · `awscli` · `zsh`<sup>POSIX</sup> + autosuggestions / syntax-highlighting / `fzf-tab`
+[starship](https://starship.rs) · [bat](https://github.com/sharkdp/bat) · [fzf](https://github.com/junegunn/fzf) · [ripgrep](https://github.com/BurntSushi/ripgrep) · [eza](https://github.com/eza-community/eza) · [jq](https://github.com/jqlang/jq) · [gh](https://cli.github.com) · [git](https://git-scm.com) · [git-delta](https://github.com/dandavison/delta) · [zoxide](https://github.com/ajeetdsouza/zoxide) · [btop](https://github.com/aristocratos/btop) · [node](https://nodejs.org) · [tmux](https://github.com/tmux/tmux)<sup>POSIX</sup> · [uv](https://docs.astral.sh/uv) · [awscli](https://aws.amazon.com/cli/) · [zsh](https://www.zsh.org)<sup>POSIX</sup> + [autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) / [syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting) / [fzf-tab](https://github.com/Aloxaf/fzf-tab)
 
 ### Desktop apps (platform-specific)
 
-| macOS (casks) | Linux | WSL | Windows (`winget`) |
+| macOS (casks) | Linux | WSL | Windows ([winget](https://github.com/microsoft/winget-cli)) |
 |:--|:--|:--|:--|
-| Ghostty | JetBrainsMono Nerd Font (tarball) | *fonts on Windows side* | JetBrainsMono Nerd Font |
-| 1Password + CLI | 1Password + CLI *(if desktop present)* | *1Password on Windows side* | 1Password + CLI |
-| Rectangle | Ghostty *(if available)* | Windows Terminal | PowerToys (FancyZones) |
-| JetBrains Toolbox | | | JetBrains Toolbox |
-| Ice · OrbStack · Stats | | | |
-| Claude Code (cask) | Claude Code (native installer) | Claude Code (native installer) | Claude Code (native installer) |
+| [Ghostty](https://ghostty.org) | [JetBrainsMono Nerd Font](https://github.com/ryanoasis/nerd-fonts) (tarball) | *fonts on Windows side* | [JetBrainsMono Nerd Font](https://github.com/ryanoasis/nerd-fonts) |
+| [1Password](https://1password.com) + [CLI](https://developer.1password.com/docs/cli) | 1Password + CLI *(if desktop present)* | *1Password on Windows side* | 1Password + CLI |
+| [Rectangle](https://rectangleapp.com) | Ghostty *(if available)* | [Windows Terminal](https://github.com/microsoft/terminal) | [PowerToys](https://github.com/microsoft/PowerToys) (FancyZones) |
+| [JetBrains Toolbox](https://www.jetbrains.com/toolbox-app/) | | | JetBrains Toolbox |
+| [Ice](https://github.com/jordanbaird/Ice) · [OrbStack](https://orbstack.dev) · [Stats](https://github.com/exelban/stats) | | | |
+| [Claude Code](https://docs.claude.com/en/docs/claude-code) (cask) | Claude Code (native installer) | Claude Code (native installer) | Claude Code (native installer) |
 
 Anything that can't work on the current platform is **skipped with a reason** and listed in the end-of-run summary — nothing fails silently.
 
@@ -120,7 +120,7 @@ PowerShell gets the equivalents: Starship prompt, `PSReadLine` prefix-history + 
 |:--|:--|
 | `~/.zshrc` | PATH, fast prompt-free `compinit`, fzf-tab, plugins, prompt, history, aliases |
 | `~/.config/starship.toml` | `catppuccin-powerline` preset |
-| `~/.config/ghostty/config` | JetBrainsMono Nerd Font, Catppuccin Mocha, padding |
+| `~/.config/ghostty/config` | JetBrainsMono Nerd Font, [Catppuccin](https://catppuccin.com) Mocha, padding |
 | `~/.vimrc` | restored defaults + word-jump keybinds matching the terminal |
 | `~/.gitconfig` | `delta` pager + SSH commit signing via 1Password |
 | `~/.ssh/config` | 1Password `IdentityAgent` (where the desktop app exists) |
@@ -134,7 +134,7 @@ Every existing file is backed up to `<file>.bak.<timestamp>` before being replac
 
 These scripts are built around four guarantees that hold across every platform:
 
-1. **Unattended.** One elevated-credential prompt up front (POSIX keeps the sudo cache warm in the background; Windows uses `winget --silent`). No mid-run questions — Homebrew's ask-mode, apt's config prompts, and the Claude `[y/n]` prompts are all answered or piped away.
+1. **Unattended.** One elevated-credential prompt up front (POSIX keeps the sudo cache warm in the background; Windows uses [winget](https://github.com/microsoft/winget-cli) `--silent`). No mid-run questions — [Homebrew](https://brew.sh)'s ask-mode, apt's config prompts, and the Claude `[y/n]` prompts are all answered or piped away.
 2. **Idempotent.** Each tool is checked before install; each config file is backed up then written. Run it ten times, get the same result.
 3. **Resilient.** A failed install never aborts the run. It's logged, collected, and printed under **"Failed installs"** at the end — and every config file is still written.
 4. **Platform-aware.** One script per family detects macOS / Linux / WSL / Windows, skips what can't work with a stated reason, and tells you the manual step or the sibling script that covers it.
