@@ -8,10 +8,10 @@ The two scripts share one goal — turn a bare machine into a fully-equipped ter
 |:--|:--|:--|
 | Runs on | macOS · Linux · WSL | native Windows |
 | Shell written | `zsh` | PowerShell |
-| Installer | Homebrew (+ apt/dnf/pacman prereqs) | `winget` |
+| Installer | [Homebrew](https://brew.sh) (+ apt/dnf/pacman prereqs) | [`winget`](https://github.com/microsoft/winget-cli) |
 | Stages | 13 | 10 |
 
-> **Why two scripts?** `zsh`, `tmux`, Homebrew casks, and the POSIX-only `codegraph`/`claude-auto-retry` installers have no native Windows equivalent. Rather than `if WINDOWS` littering one giant script, each platform gets a script that does everything it *can* do and explicitly defers the rest.
+> **Why two scripts?** [zsh](https://www.zsh.org), [tmux](https://github.com/tmux/tmux), Homebrew casks, and the POSIX-only [codegraph](https://github.com/colbymchenry/codegraph)/[claude-auto-retry](https://github.com/cheapestinference/claude-auto-retry) installers have no native Windows equivalent. Rather than `if WINDOWS` littering one giant script, each platform gets a script that does everything it *can* do and explicitly defers the rest.
 
 ---
 
@@ -55,8 +55,8 @@ Both scripts are designed to run start-to-finish with **zero mid-run prompts**:
 | 8 | **Sudo + 1Password SSH agent** | Touch ID for sudo (macOS `pam.d/sudo_local`). Writes the 1Password `IdentityAgent` to `~/.ssh/config` (macOS/Linux only — WSL needs a manual relay). |
 | 9 | **Git** | `delta` pager everywhere; SSH commit signing via 1Password's `op-ssh-sign` wherever it's found. |
 | 10 | **uv** | Installs a default managed CPython. |
-| 11 | **Claude plugins** | Installs `oh-my-claudecode`, `starship-claude`, `astral`, `context-mode`, `remember`, `ponytail`, the `ty` LSP (from a local clone), plus the `codegraph` CLI wired to Claude. |
-| 12 | **Claude MCP** | Registers `playwright` and `puppeteer` MCP servers (user scope, via `npx -y`). |
+| 11 | **Claude plugins** | Installs [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [starship-claude](https://github.com/martinemde/starship-claude), [astral](https://github.com/astral-sh/claude-code-plugins), [context-mode](https://github.com/mksglu/context-mode), [remember](https://github.com/Digital-Process-Tools/claude-marketplace), [ponytail](https://github.com/DietrichGebert/ponytail), the [ty](https://github.com/ilepn/ty-lsp-claude-code) LSP (from a local clone), plus the [codegraph](https://github.com/colbymchenry/codegraph) CLI wired to Claude. |
+| 12 | **Claude MCP** | Registers [playwright](https://github.com/microsoft/playwright-mcp) and [puppeteer](https://github.com/merajmehrabi/puppeteer-mcp-server) MCP servers (user scope, via `npx -y`). |
 | 13 | **`claude-auto-retry`** | The auto-resume layer — see [below](#claude-auto-retry). |
 
 ### `setup.ps1` (Windows) — 10 stages
@@ -97,7 +97,7 @@ The generated zshrc is where most of the daily-experience magic lives. In order:
 
 ## `claude-auto-retry`
 
-`claude-auto-retry` keeps Claude Code running through usage-limit resets: it wraps `claude` inside a `tmux` pane, watches for the limit message, sleeps until the stated reset time, then sends `continue`. Stage 13 wires up the full self-healing stack:
+[`claude-auto-retry`](https://github.com/cheapestinference/claude-auto-retry) keeps [Claude Code](https://docs.claude.com/en/docs/claude-code) running through usage-limit resets: it wraps `claude` inside a [tmux](https://github.com/tmux/tmux) pane, watches for the limit message, sleeps until the stated reset time, then sends `continue`. Stage 13 wires up the full self-healing stack:
 
 - **tmux status-bar indicator** — per-pane state via `tmux-status.sh`: 🟢 `AR monitoring` · ⏳ `AR waiting` on reset · 🟠 `AR backoff` · 🔴 `AR gave up`.
 - **Self-healing timer** — every 5 min, a background job re-arms a monitor for any live Claude pane that lost one:

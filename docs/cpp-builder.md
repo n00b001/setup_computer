@@ -32,9 +32,9 @@ Run `build_project.sh --help` for the full reference.
 ## What it does
 
 1. **Detects the platform** and the available GPU compute backend.
-2. **Installs toolchain + acceleration packages** through the system package manager (Homebrew on macOS, apt on Debian/Ubuntu).
+2. **Installs toolchain + acceleration packages** through the system package manager ([Homebrew](https://brew.sh) on macOS, apt on Debian/Ubuntu).
 3. **Clones** the project to `~/llama.cpp` (or `~/whisper.cpp`) — or **updates** it to the latest revision (`--update` is the default).
-4. **Configures** with CMake/Ninja, turning **on** the right backend and **off** every other (explicit flags so a stale CMake cache can't leak an old choice).
+4. **Configures** with [CMake](https://cmake.org)/[Ninja](https://ninja-build.org), turning **on** the right backend and **off** every other (explicit flags so a stale CMake cache can't leak an old choice).
 5. **Builds** with all cores (`nproc` / `hw.ncpu`) and **installs** the binaries.
 6. **Exposes** them on PATH — symlinks on macOS, `update-alternatives` on Linux.
 
@@ -48,10 +48,10 @@ Acceleration is chosen automatically from what the machine actually has. GPU **d
 
 | Platform | Backend | BLAS | Extra | Also |
 |:--|:--|:--|:--|:--|
-| **macOS** (Apple Silicon / Intel) | Metal | Accelerate (built-in) | embeds the Metal kernel library | — |
-| **Linux + NVIDIA** | CUDA | cuBLAS | FlashAttention, FA all-quants, graphs (llama), speed compression | + Vulkan |
-| **Linux + AMD** | ROCm / HIP | hipBLAS | ROCWMMA FlashAttention when present | + Vulkan |
-| **Linux, no GPU** | — | — | — | Vulkan if usable, else CPU + OpenBLAS |
+| **macOS** (Apple Silicon / Intel) | [Metal](https://developer.apple.com/metal) | [Accelerate](https://developer.apple.com/documentation/accelerate) (built-in) | embeds the Metal kernel library | — |
+| **Linux + NVIDIA** | [CUDA](https://developer.nvidia.com/cuda-toolkit) | cuBLAS | FlashAttention, FA all-quants, graphs (llama), speed compression | + [Vulkan](https://www.vulkan.org) |
+| **Linux + AMD** | [ROCm](https://rocm.docs.amd.com) / HIP | hipBLAS | ROCWMMA FlashAttention when present | + Vulkan |
+| **Linux, no GPU** | — | — | — | Vulkan if usable, else CPU + [OpenBLAS](https://www.openblas.net) |
 
 Details the script works out for you:
 
@@ -105,4 +105,4 @@ Otherwise the flow, acceleration selection, and install paths are identical to `
 | `--clean` / `-c` | Remove `build/` and reconfigure from scratch. |
 | `-h` / `--help` | Show the help text. |
 
-Other build defaults baked in: `CMAKE_BUILD_TYPE=Release`, static libs (`BUILD_SHARED_LIBS=OFF`), `GGML_NATIVE=ON`, LTO on, and `ccache` as the compiler launcher when present (so incremental rebuilds are fast).
+Other build defaults baked in: `CMAKE_BUILD_TYPE=Release`, static libs (`BUILD_SHARED_LIBS=OFF`), `GGML_NATIVE=ON`, LTO on, and [ccache](https://ccache.dev) as the compiler launcher when present (so incremental rebuilds are fast).
