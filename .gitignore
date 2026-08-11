@@ -17,3 +17,7 @@ cpp-builder/build/
 
 # personal feedback/scratch notes
 my-logs
+
+# personal/org Claude config not for a public repo (travels with the folder)
+claude/private/
+.tenet/
