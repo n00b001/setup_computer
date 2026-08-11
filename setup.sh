@@ -6,9 +6,12 @@
 #            detects Git Bash/MSYS/Cygwin.
 #
 # Installs : Homebrew (macOS and Linux/WSL); CLI: starship bat fzf ripgrep eza
-#            jq gh git git-delta zoxide btop node tmux uv awscli + 2 zsh plugins
-#            (autosuggestions, syntax-highlighting) + fzf-tab; uv-managed
-#            Python, Claude Code plugins, MCP servers,
+#            jq gh git git-delta zoxide btop node tmux uv awscli azure-cli
+#            + 2 zsh plugins (autosuggestions, syntax-highlighting) + fzf-tab;
+#            uv-managed Python, Claude Code plugins (community + official
+#            marketplace), MCP servers (playwright puppeteer datadog sonarqube
+#            teams-mcp databricks/ai-dev-kit), personal Claude config from
+#            claude/ (hooks, skills, settings.json merge, gitignored private/),
 #            codegraph, claude-auto-retry
 #            macOS only: Ghostty, 1Password (+CLI), Rectangle, JetBrains
 #            Toolbox, Ice, OrbStack, Stats, Claude Code cask,
@@ -152,7 +155,7 @@ fi
 echo "== 2/13 Formulas =="
 formulas=(starship bat fzf ripgrep eza
           zsh-autosuggestions zsh-syntax-highlighting fzf-tab
-          jq gh git git-delta zoxide btop node tmux uv awscli)
+          jq gh git git-delta zoxide btop node tmux uv awscli azure-cli)
 for f in "${formulas[@]}"; do
   brew list "$f" >/dev/null 2>&1 && continue
   brew install "$f" </dev/null || fail "brew install $f"
@@ -570,6 +573,15 @@ if command -v claude >/dev/null 2>&1; then
   add_marketplace DietrichGebert/ponytail
   run_claude claude plugin install ponytail@ponytail
 
+  # Official marketplace (ships with Claude Code, no marketplace add needed)
+  official_plugins=(superpowers code-review context7 skill-creator code-simplifier
+                    github playwright claude-md-management ralph-loop
+                    claude-code-setup commit-commands figma pr-review-toolkit
+                    atlassian explanatory-output-style datadog clangd-lsp)
+  for p in "${official_plugins[@]}"; do
+    run_claude claude plugin install "$p@claude-plugins-official"
+  done
+
   # ty LSP plugin installs from a local clone, per its README
   TY_DIR="$HOME/.claude-tools/ty-lsp-claude-code"
   if [[ ! -d "$TY_DIR" ]]; then
@@ -594,6 +606,55 @@ if command -v claude >/dev/null 2>&1; then
   else
     echo "    warn: codegraph not on PATH yet; run 'codegraph install --target=claude --yes' in a new terminal"
   fi
+
+  # ── personal Claude config: hooks, skills, settings.json ──
+  # Generic files live in claude/ in this repo; org/personal files live in
+  # claude/private/ which is gitignored (they travel with this folder, not git).
+  CLAUDE_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/claude"
+  if [[ -d "$CLAUDE_SRC" ]]; then
+    mkdir -p ~/.claude/hooks ~/.claude/skills
+    # AGENTS.md loader hook (SessionStart/UserPromptSubmit/PreCompact)
+    cp "$CLAUDE_SRC/hooks/cc-agents-md.sh" ~/.claude/hooks/ \
+      && chmod +x ~/.claude/hooks/cc-agents-md.sh \
+      || fail "installing cc-agents-md.sh hook"
+    cp -R "$CLAUDE_SRC/skills/markedit" ~/.claude/skills/ || fail "installing markedit skill"
+    if [[ -f "$CLAUDE_SRC/private/CLAUDE.md" && ! -f ~/.claude/CLAUDE.md ]]; then
+      cp "$CLAUDE_SRC/private/CLAUDE.md" ~/.claude/CLAUDE.md
+    fi
+    if [[ -f "$CLAUDE_SRC/private/teams-mcp-refresh.sh" ]]; then
+      cp "$CLAUDE_SRC/private/teams-mcp-refresh.sh" ~/.claude/ \
+        && chmod +x ~/.claude/teams-mcp-refresh.sh
+    fi
+
+    # settings.json: append the cc-agents-md hooks once, merge permissions.
+    # jq assignments, not a file overwrite, so hooks other installers added
+    # (ai-dev-kit, context-mode, claude-auto-retry, codegraph) survive re-runs.
+    S="$HOME/.claude/settings.json"
+    [[ -f "$S" ]] || echo '{}' > "$S"
+    if ! grep -q cc-agents-md "$S"; then
+      backup "$S"
+      jq --arg h "$HOME/.claude/hooks/cc-agents-md.sh" '
+        .hooks.SessionStart     = ((.hooks.SessionStart     // []) + [{matcher:"", hooks:[{type:"command", command:$h}]}]) |
+        .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{matcher:"", hooks:[{type:"command", command:("AGENTS_MD_HOOK_MODE=prompt " + $h)}]}]) |
+        .hooks.PreCompact       = ((.hooks.PreCompact       // []) + [{matcher:"", hooks:[{type:"command", command:("AGENTS_MD_HOOK_MODE=compact " + $h)}]}])
+      ' "$S" > "$S.tmp" && mv "$S.tmp" "$S" || fail "settings.json hook merge"
+    fi
+    jq '
+      .permissions.allow = (((.permissions.allow // []) + ["Bash(aws:*)", "mcp__codegraph__*"]) | unique) |
+      .permissions.deny  = (((.permissions.deny  // []) + ["Read(./.env)", "Read(./.env.*)", "Read(./.aws/**)", "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(./secrets/**)"]) | unique) |
+      .permissions.defaultMode //= "auto" |
+      .attribution //= {commit: "", pr: ""}
+    ' "$S" > "$S.tmp" && mv "$S.tmp" "$S" || fail "settings.json permissions merge"
+    # statusline: the starship-claude plugin drops this binary via its /starship wizard
+    if [[ -x "$HOME/.local/bin/starship-claude" ]]; then
+      jq '.statusLine //= {type: "command", command: "~/.local/bin/starship-claude", padding: 0}' \
+        "$S" > "$S.tmp" && mv "$S.tmp" "$S" || fail "settings.json statusline"
+    else
+      echo "    note: run /starship inside claude once to finish statusline setup"
+    fi
+  else
+    skip "Claude config files" "claude/ dir not found next to setup.sh"
+  fi
 else
   echo "    warn: claude not on PATH yet; open a new terminal and re-run this script"
 fi
@@ -608,6 +669,50 @@ if command -v claude >/dev/null 2>&1; then
   claude mcp get puppeteer >/dev/null 2>&1 || \
     claude mcp add --scope user puppeteer -- npx -y puppeteer-mcp-server </dev/null \
     || echo "    warn: adding puppeteer MCP failed"
+
+  # datadog: http transport; OAuth happens in-app on first connect (or /ddsetup)
+  claude mcp get datadog >/dev/null 2>&1 || \
+    claude mcp add --scope user --transport http datadog "https://mcp.us5.datadoghq.com/v1/mcp" </dev/null \
+    || echo "    warn: adding datadog MCP failed"
+
+  # sonarqube: standalone jar (SonarSource publishes releases on binaries.sonarsource.com)
+  SQ_VER=1.23.0.3101
+  SQ_DIR="$HOME/sonarqube-mcp-server"
+  SQ_JAR="$SQ_DIR/sonarqube-mcp-server-$SQ_VER.jar"
+  brew list openjdk@21 >/dev/null 2>&1 || brew install openjdk@21 </dev/null || fail "brew install openjdk@21"
+  mkdir -p "$SQ_DIR/storage"
+  [[ -f "$SQ_JAR" ]] || \
+    curl -fsSL "https://binaries.sonarsource.com/Distribution/sonarqube-mcp-server/sonarqube-mcp-server-$SQ_VER.jar" \
+      -o "$SQ_JAR" || fail "sonarqube-mcp jar download"
+  if [[ -f "$SQ_JAR" && -x "$BREW_PREFIX/opt/openjdk@21/bin/java" ]]; then
+    # token stays out of the config: Claude expands ${SONARQUBE_TOKEN} at launch
+    claude mcp get sonarqube >/dev/null 2>&1 || \
+      claude mcp add --scope user sonarqube \
+        -e 'SONARQUBE_TOKEN=${SONARQUBE_TOKEN}' \
+        -e "SONARQUBE_ORG=${SONARQUBE_ORG:-em-altrata}" \
+        -e "STORAGE_PATH=$SQ_DIR/storage" \
+        -- "$BREW_PREFIX/opt/openjdk@21/bin/java" -jar "$SQ_JAR" </dev/null \
+      || echo "    warn: adding sonarqube MCP failed"
+    echo "    note: sonarqube MCP needs SONARQUBE_TOKEN exported in your shell"
+  fi
+
+  # teams-mcp: needs a short-lived Graph token minted interactively by Azure CLI;
+  # the refresh script registers the server itself, so just point at it here
+  [[ -x "$HOME/.claude/teams-mcp-refresh.sh" ]] && \
+    echo "    note: run ~/.claude/teams-mcp-refresh.sh (interactive az login) to add/refresh teams-mcp"
+
+  # ai-dev-kit: Databricks skills (~/.claude/skills/databricks-*), databricks MCP,
+  # AI_DEV_KIT env vars and the update-check hook — its installer wires all of it
+  if [[ ! -d "$HOME/.ai-dev-kit" ]]; then
+    AIDK_TMP="$(mktemp)"
+    if curl -fsSL https://raw.githubusercontent.com/databricks-solutions/ai-dev-kit/main/install.sh -o "$AIDK_TMP"; then
+      bash "$AIDK_TMP" --global </dev/null \
+        || echo "    warn: ai-dev-kit install failed (needs a Databricks CLI profile; run 'databricks auth login' then re-run)"
+    else
+      fail "ai-dev-kit installer download"
+    fi
+    rm -f "$AIDK_TMP"
+  fi
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
