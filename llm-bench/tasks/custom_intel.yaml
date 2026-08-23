@@ -1,0 +1,29 @@
+task: custom_intel
+dataset_path: json
+dataset_name: null
+dataset_kwargs:
+  data_files:
+    train: tasks/custom_intel.jsonl
+test_split: train
+num_fewshot: 0
+output_type: generate_until
+doc_to_text: !function llm_bench.task_helpers.doc_to_text
+doc_to_target: !function llm_bench.task_helpers.doc_to_target
+generation_kwargs:
+  max_tokens: 64
+  temperature: 0.0
+  stop: ["\n\n"]
+  until: ["\n\n"]
+metric_list:
+  - metric: exact_match
+    aggregation: mean
+    higher_is_better: true
+    ignore_case: true
+    ignore_punctuation: false
+    regexes_to_ignore: []
+filter_list:
+  - name: letter
+    filter:
+      - function: "regex"
+        regex_pattern: "([A-H])"
+      - function: "take_first"

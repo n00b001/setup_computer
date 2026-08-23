@@ -1,0 +1,31 @@
+# llm-bench configuration example
+# Save as llm-bench.toml in the working directory, or set LLM_BENCH_CONFIG.
+
+[endpoint]
+base_url = "http://localhost:8000/v1"
+model = "my-model"
+api_key = ""  # set for servers that require it; for local servers use "EMPTY"
+
+[serve]
+users = 5                # max concurrency; sweep runs 1..users (used if concurrency_levels not set)
+concurrency_levels = ""  # comma-separated list of concurrency levels to test (e.g., "1,2,4,8"). Overrides users.
+requests = 5             # number of requests per concurrency level
+prompt = "Write a 200-word essay about the history of the internet. Cover ARPANET, TCP/IP, and the World Wide Web."
+max_tokens = 256
+temperature = 0.0        # forced to 0.0 for benchmarks
+warmup = 1               # warmup requests per concurrency level
+seed = 42                # random seed for reproducibility
+request_timeout = 600    # request timeout in seconds
+output = ""              # empty = auto timestamped results-<date>.json
+
+[eval]
+eval_model_type = "openai-chat-completions"
+dataset = "tasks/custom_intel.jsonl"
+task = "custom_intel"
+limit = 0                # 0 = all samples
+num_fewshot = 0
+dataset_type = "multiple_choice"  # multiple_choice or true_false
+
+# Dataset generation (for generate-dataset command)
+# num_questions = 20
+# categories = "math,science,logic,geography,literature"

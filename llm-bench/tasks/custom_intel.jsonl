@@ -1,0 +1,8 @@
+{"question": "What is 17 * 23?", "choices": ["351", "391", "407", "421"], "answer": 1, "category": "math"}
+{"question": "Which planet is known as the Red Planet?", "choices": ["Venus", "Mars", "Jupiter", "Saturn"], "answer": 1, "category": "science"}
+{"question": "What is the capital of Japan?", "choices": ["Seoul", "Beijing", "Tokyo", "Bangkok"], "answer": 2, "category": "geography"}
+{"question": "Complete the sequence: 2, 4, 8, 16, ?", "choices": ["24", "32", "30", "28"], "answer": 1, "category": "logic"}
+{"question": "Who wrote 'Romeo and Juliet'?", "choices": ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"], "answer": 1, "category": "literature"}
+{"question": "What is the derivative of x^2?", "choices": ["x", "2x", "2x^2", "x^2"], "answer": 1, "category": "math"}
+{"question": "Which element has the chemical symbol 'Au'?", "choices": ["Silver", "Gold", "Copper", "Iron"], "answer": 1, "category": "science"}
+{"question": "If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops Lazzies?", "choices": ["Yes", "No", "Sometimes", "Cannot determine"], "answer": 0, "category": "logic"}

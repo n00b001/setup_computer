@@ -1,0 +1,4 @@
+"""llm-bench: Automated LLM benchmark."""
+from __future__ import annotations
+
+__version__ = "0.1.0"
