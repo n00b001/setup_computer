@@ -1,7 +1,7 @@
 """Dataset generation utility - creates evaluation datasets from an LLM with human-in-the-loop review.
 
-Uses OpenAI function calling (tools) for structured output - the single happy path
-that works with the local inference server.
+Uses OpenAI SDK Responses API with structured outputs (client.responses.parse) - the official
+way to get guaranteed structured output per OpenAI docs.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import aiohttp
+from openai import AsyncOpenAI
 from pydantic import BaseModel, Field, field_validator
 
 log = logging.getLogger("llm_bench.dataset_gen")
@@ -46,6 +46,12 @@ class Question(BaseModel):
         return v
 
 
+class DatasetResponse(BaseModel):
+    """Structured response from LLM for dataset generation."""
+
+    questions: list[Question] = Field(..., description="List of generated questions")
+
+
 class GenerationConfig(BaseModel):
     """Configuration for dataset generation."""
 
@@ -64,34 +70,6 @@ class GenerationConfig(BaseModel):
     difficulty_mix: str = Field(
         default="balanced", description="easy, medium, hard, or balanced"
     )
-
-
-def _build_tool_schema(config: GenerationConfig) -> dict[str, Any]:
-    """Build the function calling schema from Pydantic models."""
-    # Use Question model schema for the array items
-    question_schema = Question.model_json_schema()
-    question_schema["additionalProperties"] = False
-
-    return {
-        "type": "function",
-        "function": {
-            "name": "generate_questions",
-            "description": f"Generate {config.num_questions} benchmark questions",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "questions": {
-                        "type": "array",
-                        "items": question_schema,
-                        "minItems": config.num_questions,
-                        "maxItems": config.num_questions,
-                    }
-                },
-                "required": ["questions"],
-                "additionalProperties": False,
-            },
-        },
-    }
 
 
 def _build_generation_prompt(
@@ -134,91 +112,19 @@ Requirements:
 - Make questions unambiguous and verifiable without an LLM
 - For true/false: statements must be clearly true or false
 - For multiple choice: exactly 4 options, only one correct
-- Each question must have a brief explanation
-
-Call the generate_questions function with the questions array."""
+- Each question must have a brief explanation"""
 
     return prompt
 
 
-async def _chat_request_with_tools(
-    api_url: str,
-    model: str,
-    prompt: str,
-    tools: list[dict[str, Any]],
-    api_key: str = "",
-    seed: int | None = None,
-    timeout: int = 600,
-) -> dict[str, Any]:
-    """Non-streaming OpenAI Chat Completions request with function calling."""
-    assert api_url.endswith("/chat/completions"), api_url
-
-    timeout_obj = aiohttp.ClientTimeout(total=timeout)
-    async with aiohttp.ClientSession(timeout=timeout_obj) as session:
-        # Add system prompt to ensure tool usage
-        messages = [
-            {"role": "system", "content": "You are a benchmark question generator. You MUST call the generate_questions function with the requested questions. Do not output questions directly."},
-            {"role": "user", "content": prompt},
-        ]
-        payload: dict[str, Any] = {
-            "model": model,
-            "messages": messages,
-            "max_completion_tokens": 4096,
-            "temperature": 0.3,
-            "stream": False,
-            "tools": tools,
-            "tool_choice": {
-                "type": "function",
-                "function": {"name": "generate_questions"},
-            },
-        }
-        if seed is not None:
-            payload["seed"] = seed
-
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-
-        async with session.post(api_url, json=payload, headers=headers) as response:
-            if response.status == 200:
-                data = await response.json()
-                choices = data.get("choices") or []
-                if choices:
-                    msg = choices[0].get("message", {})
-                    tool_calls = msg.get("tool_calls") or []
-                    if tool_calls:
-                        # Parse function arguments
-                        for tc in tool_calls:
-                            if (
-                                tc.get("function", {}).get("name")
-                                == "generate_questions"
-                            ):
-                                try:
-                                    args = json.loads(tc["function"]["arguments"])
-                                    return {"success": True, "data": args}
-                                except Exception as e:
-                                    return {
-                                        "success": False,
-                                        "error": f"Failed to parse function args: {e}",
-                                    }
-                        return {
-                            "success": False,
-                            "error": "No generate_questions tool call found",
-                        }
-                    # Fallback: try to parse content as JSON if no tool calls
-                    content = msg.get("content", "")
-                    if content and content.strip().startswith("{"):
-                        try:
-                            args = json.loads(content)
-                            if "questions" in args:
-                                return {"success": True, "data": args}
-                        except Exception:
-                            pass
-                    return {"success": False, "error": "No tool calls in response"}
-                return {"success": False, "error": "No choices in response"}
-            else:
-                return {
-                    "success": False,
-                    "error": f"HTTP {response.status}: {await response.text()}",
-                }
+def _create_openai_client(base_url: str, api_key: str, timeout: int = 600) -> AsyncOpenAI:
+    """Create AsyncOpenAI client with custom base_url."""
+    return AsyncOpenAI(
+        base_url=base_url.rstrip("/"),
+        api_key=api_key or "EMPTY",
+        timeout=timeout,
+        max_retries=0,
+    )
 
 
 async def generate_batch(
@@ -229,38 +135,38 @@ async def generate_batch(
     seed: int,
     approved_examples: list[Question] | None = None,
 ) -> list[Question]:
-    """Generate a batch of questions using function calling for structured output."""
-    api_url = base_url.rstrip("/") + "/chat/completions"
+    """Generate a batch of questions using OpenAI SDK Responses API structured outputs."""
     prompt = _build_generation_prompt(config, approved_examples)
-    tools = [_build_tool_schema(config)]
+    client = _create_openai_client(base_url, api_key)
 
-    log.debug("Sending dataset generation request to %s", api_url)
+    log.debug("Sending dataset generation request to %s", base_url)
     start = time.perf_counter()
 
-    result = await _chat_request_with_tools(
-        api_url, model, prompt, tools, api_key, seed, timeout=600
-    )
-    dur = time.perf_counter() - start
+    try:
+        # Use Responses API with text_format for structured output
+        response = await client.responses.parse(
+            model=model,
+            input=[
+                {"role": "system", "content": "You are a benchmark question generator. Generate questions matching the requested format exactly."},
+                {"role": "user", "content": prompt},
+            ],
+            text_format=DatasetResponse,
+            temperature=0.3,
+            max_output_tokens=4096,
+        )
+        dur = time.perf_counter() - start
+        log.debug("Received response in %.2fs", dur)
 
-    if not result["success"]:
-        log.error("Generation failed: %s", result["error"])
-        raise RuntimeError(f"Dataset generation failed: {result['error']}")
+        # The output_parsed attribute contains the validated Pydantic model
+        if response.output_parsed:
+            return response.output_parsed.questions
+        else:
+            raise RuntimeError("No parsed response returned")
 
-    log.debug("Received response in %.2fs", dur)
-
-    # Parse and validate with Pydantic
-    questions_data = result["data"].get("questions", [])
-    questions = []
-    for item in questions_data:
-        try:
-            questions.append(Question(**item))
-        except Exception as e:
-            log.warning("Skipping invalid question: %s", e)
-
-    if not questions:
-        raise RuntimeError("No valid questions generated")
-
-    return questions
+    except Exception as e:
+        dur = time.perf_counter() - start
+        log.error("Generation failed after %.2fs: %s", dur, e)
+        raise RuntimeError(f"Dataset generation failed: {e}") from e
 
 
 def interactive_config() -> GenerationConfig:
