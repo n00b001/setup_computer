@@ -155,9 +155,14 @@ async def _chat_request_with_tools(
 
     timeout_obj = aiohttp.ClientTimeout(total=timeout)
     async with aiohttp.ClientSession(timeout=timeout_obj) as session:
+        # Add system prompt to ensure tool usage
+        messages = [
+            {"role": "system", "content": "You are a benchmark question generator. You MUST call the generate_questions function with the requested questions. Do not output questions directly."},
+            {"role": "user", "content": prompt},
+        ]
         payload: dict[str, Any] = {
             "model": model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "max_completion_tokens": 4096,
             "temperature": 0.3,
             "stream": False,
@@ -198,6 +203,15 @@ async def _chat_request_with_tools(
                             "success": False,
                             "error": "No generate_questions tool call found",
                         }
+                    # Fallback: try to parse content as JSON if no tool calls
+                    content = msg.get("content", "")
+                    if content and content.strip().startswith("{"):
+                        try:
+                            args = json.loads(content)
+                            if "questions" in args:
+                                return {"success": True, "data": args}
+                        except Exception:
+                            pass
                     return {"success": False, "error": "No tool calls in response"}
                 return {"success": False, "error": "No choices in response"}
             else:
