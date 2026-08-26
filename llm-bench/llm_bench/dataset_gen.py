@@ -185,7 +185,10 @@ async def generate_batch(
                 {"role": "user", "content": prompt},
             ],
             tools=tools,
-            tool_choice={"type": "function", "function": {"name": "generate_questions"}},
+            tool_choice={
+                "type": "function",
+                "function": {"name": "generate_questions"},
+            },
             temperature=0.3,
             max_completion_tokens=4096,
             seed=seed,

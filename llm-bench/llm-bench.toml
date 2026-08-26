@@ -1,0 +1,23 @@
+# llm-bench configuration example
+# Save as llm-bench.toml in the working directory, or set LLM_BENCH_CONFIG.
+
+[endpoint]
+base_url = "http://localhost:8000/v1"
+model = "my-model"
+api_key = ""  # set for servers that require it; for local servers use "EMPTY"
+
+[serve]
+users = 5           # max concurrency; sweep runs 1..users
+requests = 10       # number of requests per concurrency level
+prompt = "Write a 200-word essay about the history of the internet. Cover ARPANET, TCP/IP, and the World Wide Web."
+max_tokens = 256
+temperature = 0.0
+warmup = 1
+output = ""         # empty = auto timestamped results-<date>.json
+
+[eval]
+eval_model_type = "openai-chat-completions"
+dataset = "tasks/custom_intel.jsonl"
+task = "custom_intel"
+limit = 0           # 0 = all samples
+num_fewshot = 0

@@ -10,6 +10,7 @@ dependencies = [
     "lm-eval[api]>=0.4.5",
     "rich>=13.7",
     "pydantic>=2.0",
+    "openai>=3.3.1",
 ]
 
 [project.scripts]

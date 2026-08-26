@@ -21,3 +21,6 @@ my-logs
 # personal/org Claude config not for a public repo (travels with the folder)
 claude/private/
 .tenet/
+results*
+llm-bench/llm_bench/__pycache__/
+llm-bench/tests/__pycache__/

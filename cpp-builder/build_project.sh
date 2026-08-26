@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # =============================================================================
-# cpp-builder — one-shot builder for llama.cpp / whisper.cpp
+# cpp-builder — one-shot builder for llama.cpp / whisper.cpp / ninfer-4090
 #
 # Run it from anywhere. It clones the project into your home directory, installs
 # the acceleration toolkits your machine can use, builds with them, and installs
@@ -30,7 +30,8 @@ REV=""                   # git branch/tag/commit; empty => repo default branch
 
 usage() {
     cat <<'HELP'
-cpp-builder — build & install llama.cpp / whisper.cpp with GPU acceleration
+cpp-builder — build & install llama.cpp / whisper.cpp / ninfer-4090
+with GPU acceleration
 
 USAGE
     build_project.sh [PROJECT] [OPTIONS]
@@ -38,6 +39,8 @@ USAGE
 PROJECT (positional, optional; default: llama.cpp)
     llama.cpp    | llama   | llamacpp      build llama.cpp
     whisper.cpp  | whisper | whispercpp    build whisper.cpp
+    ninfer-4090  | ninfer                build NInfer (RTX 3090/4090, CUDA)
+                                           sm_86/sm_89 picked from the local GPU
 
 OPTIONS
     --rev <ref>       Build a specific git revision (branch, tag, or commit).
@@ -68,6 +71,7 @@ EXAMPLES
     build_project.sh                       # llama.cpp, latest, all accel
     build_project.sh whisper.cpp           # whisper.cpp, latest
     build_project.sh --rev b4589           # build a specific tag/commit
+    build_project.sh ninfer                # NInfer, latest, CUDA sm target from nvidia-smi
     build_project.sh --no-update           # rebuild what is already checked out
     build_project.sh llama --clean         # clean rebuild
 HELP
@@ -77,6 +81,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         llama.cpp|llama|llamacpp)          PROJECT_KIND="llama" ;;
         whisper.cpp|whisper|whispercpp)    PROJECT_KIND="whisper" ;;
+        ninfer-4090|ninfer)                PROJECT_KIND="ninfer" ;;
         --rev)   shift; REV="${1:-}"; [[ -z "$REV" ]] && { echo "--rev needs a value" >&2; exit 2; } ;;
         --rev=*) REV="${1#*=}" ;;
         --update)    UPDATE=true ;;
@@ -95,13 +100,19 @@ case "$(uname -s)" in
     *)      echo "Unsupported platform: $(uname -s)" >&2; exit 1 ;;
 esac
 
-if [[ "$PROJECT_KIND" == "whisper" ]]; then
+if [[ "$PROJECT_KIND" == "ninfer" ]]; then
+    PROJECT_NAME="ninfer-4090"
+    GIT_REMOTE="https://github.com/UDPSendToFailed/ninfer-4090.git"
+elif [[ "$PROJECT_KIND" == "whisper" ]]; then
     PROJECT_NAME="whisper.cpp"
     GIT_REMOTE="https://github.com/ggml-org/whisper.cpp.git"
 else
     PROJECT_NAME="llama.cpp"
     GIT_REMOTE="https://github.com/ggml-org/llama.cpp.git"
 fi
+# ninfer is not a ggml project: its CMake takes no GGML_* options
+IS_GGML=false
+if [[ "$PROJECT_KIND" == "llama" || "$PROJECT_KIND" == "whisper" ]]; then IS_GGML=true; fi
 PROJECT_DIR="$HOME/$PROJECT_NAME"
 CPU_CORES="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
@@ -135,6 +146,14 @@ EXTRA_CMAKE_FLAGS=()
 if [[ "$PROJECT_KIND" == "whisper" ]]; then
     EXTRA_DEPS=(libavcodec-dev libavformat-dev libavutil-dev)
     EXTRA_CMAKE_FLAGS=(-DWHISPER_FFMPEG=ON -DWHISPER_CURL=ON)
+fi
+if [[ "$PROJECT_KIND" == "ninfer" ]]; then
+    # FFmpeg >= 60/58 + libcurl >= 7.85 via pkg-config; CUDA toolkit required (>= 12.8)
+    EXTRA_DEPS=(libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libcurl4-openssl-dev)
+    # Ubuntu's ld resolves the libavformat -> libsrt-gnutls closure, which needs a newer
+    # CXXABI than the private libstdc++.so the gcc driver prefers. Load the system runtime
+    # stdc++ after the project libraries so it is available when srt is checked.
+    EXTRA_CMAKE_FLAGS=(-DNINFER_BUILD_APPS=ON -DCMAKE_CXX_STANDARD_LIBRARIES=-l:libstdc++.so.6)
 fi
 
 ###############################################################################
@@ -262,19 +281,31 @@ else
     elif has hipcc || [[ -d /opt/rocm ]]; then GPU_BACKEND="hip"; fi
 
     if [[ "$GPU_BACKEND" == "cuda" ]]; then
-        ACCEL_FLAGS+=(-DGGML_CUDA=ON -DGGML_CUDA_FA=ON -DGGML_CUDA_FA_ALL_QUANTS=ON
-                      -DGGML_CUDA_CUB_3DOT2=ON -DGGML_CUDA_COMPRESSION_MODE=speed)
-        [[ "$PROJECT_KIND" == "llama" ]] && ACCEL_FLAGS+=(-DGGML_CUDA_GRAPHS=ON)
+        if [[ "$IS_GGML" == true ]]; then
+            ACCEL_FLAGS+=(-DGGML_CUDA=ON -DGGML_CUDA_FA=ON -DGGML_CUDA_FA_ALL_QUANTS=ON
+                          -DGGML_CUDA_CUB_3DOT2=ON -DGGML_CUDA_COMPRESSION_MODE=speed)
+            [[ "$PROJECT_KIND" == "llama" ]] && ACCEL_FLAGS+=(-DGGML_CUDA_GRAPHS=ON)
+        fi
         CUDA_ARCHS=""
         if has nvidia-smi; then
+            # single-GPU machines (the norm here) yield e.g. "89"; ninfer's CMake
+            # rejects anything outside 86|89 with a clear FATAL_ERROR
             CUDA_ARCHS="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null \
                 | tr -d '. ' | grep -E '^[0-9]+$' | sort -u | paste -sd';' - || true)"
         fi
         if [[ -n "$CUDA_ARCHS" ]]; then
             ACCEL_FLAGS+=(-DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHS")
-            ACCEL_SUMMARY+=("CUDA arch=$CUDA_ARCHS (+cuBLAS, FlashAttention)")
+            if [[ "$IS_GGML" == true ]]; then
+                ACCEL_SUMMARY+=("CUDA arch=$CUDA_ARCHS (+cuBLAS, FlashAttention)")
+            else
+                ACCEL_SUMMARY+=("CUDA arch=$CUDA_ARCHS (sm-only target)")
+            fi
         else
-            ACCEL_SUMMARY+=("CUDA default-archs (+cuBLAS, FlashAttention)")
+            if [[ "$IS_GGML" == true ]]; then
+                ACCEL_SUMMARY+=("CUDA default-archs (+cuBLAS, FlashAttention)")
+            else
+                ACCEL_SUMMARY+=("CUDA default-arch")
+            fi
         fi
         [[ -d /usr/local/cuda/nvvm/bin ]] && export CICC_PATH="/usr/local/cuda/nvvm/bin"
         _HOSTCC="$(command -v g++-13 2>/dev/null || true)"
@@ -297,21 +328,23 @@ else
         ACCEL_FLAGS+=(-DGGML_HIP=OFF)
     fi
 
-    # Vulkan: cross-vendor, kept even alongside CUDA/HIP as a runtime fallback
-    if has glslc && { has vulkaninfo || ldconfig -p 2>/dev/null | grep -q libvulkan; }; then
-        ACCEL_FLAGS+=(-DGGML_VULKAN=ON); ACCEL_SUMMARY+=("Vulkan")
-    else
-        ACCEL_FLAGS+=(-DGGML_VULKAN=OFF)
-        warn "no Vulkan toolchain (glslc + libvulkan) — Vulkan skipped"
-    fi
+    if [[ "$IS_GGML" == true ]]; then
+        # Vulkan: cross-vendor, kept even alongside CUDA/HIP as a runtime fallback
+        if has glslc && { has vulkaninfo || ldconfig -p 2>/dev/null | grep -q libvulkan; }; then
+            ACCEL_FLAGS+=(-DGGML_VULKAN=ON); ACCEL_SUMMARY+=("Vulkan")
+        else
+            ACCEL_FLAGS+=(-DGGML_VULKAN=OFF)
+            warn "no Vulkan toolchain (glslc + libvulkan) — Vulkan skipped"
+        fi
 
-    # OpenBLAS: CPU-only, so only as the fallback when there is no GPU backend
-    if [[ "$GPU_BACKEND" == "none" ]] \
-       && { ldconfig -p 2>/dev/null | grep -q libopenblas \
-            || { has pkg-config && pkg-config --exists openblas 2>/dev/null; }; }; then
-        ACCEL_FLAGS+=(-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS); ACCEL_SUMMARY+=("OpenBLAS (CPU)")
-    else
-        ACCEL_FLAGS+=(-DGGML_BLAS=OFF)
+        # OpenBLAS: CPU-only, so only as the fallback when there is no GPU backend
+        if [[ "$GPU_BACKEND" == "none" ]] \
+           && { ldconfig -p 2>/dev/null | grep -q libopenblas \
+                || { has pkg-config && pkg-config --exists openblas 2>/dev/null; }; }; then
+            ACCEL_FLAGS+=(-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS); ACCEL_SUMMARY+=("OpenBLAS (CPU)")
+        else
+            ACCEL_FLAGS+=(-DGGML_BLAS=OFF)
+        fi
     fi
 
     if [[ "$GPU_BACKEND" == "none" ]]; then
@@ -332,10 +365,10 @@ BASE_FLAGS=(
     -S . -B build -G Ninja
     -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX"
-    -DBUILD_SHARED_LIBS=OFF
-    -DGGML_NATIVE=ON
-    -DGGML_LTO=ON
 )
+if [[ "$IS_GGML" == true ]]; then
+    BASE_FLAGS+=(-DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=ON -DGGML_LTO=ON)
+fi
 has ccache && BASE_FLAGS+=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
 
 log "Acceleration: ${ACCEL_SUMMARY[*]:-CPU only}"
@@ -347,17 +380,27 @@ cmake "${BASE_FLAGS[@]}" \
 log "Building with $CPU_CORES cores..."
 cmake --build build --config Release -j "$CPU_CORES"
 
-log "Installing to $INSTALL_PREFIX..."
-if [[ "$PLATFORM" == macos ]]; then
-    cmake --build build --target install               # user-writable prefix, no sudo
+if [[ "$PROJECT_KIND" == "ninfer" ]]; then
+    log "No install() targets in ninfer — binaries stay at build/apps/ and get linked below"
 else
-    sudo cmake --build build --target install
+    log "Installing to $INSTALL_PREFIX..."
+    if [[ "$PLATFORM" == macos ]]; then
+        cmake --build build --target install           # user-writable prefix, no sudo
+    else
+        sudo cmake --build build --target install
+    fi
 fi
 
 ###############################################################################
 # Expose the binaries
 ###############################################################################
-if [[ "$PLATFORM" == macos ]]; then
+if [[ "$PROJECT_KIND" == "ninfer" ]]; then
+    mkdir -p "$HOME/.local/bin"
+    for b in ninfer ninfer-serve; do
+        ln -sf "$PROJECT_DIR/build/apps/$b" "$HOME/.local/bin/$b"
+    done
+    log "Linked ninfer + ninfer-serve into ~/.local/bin (on PATH)"
+elif [[ "$PLATFORM" == macos ]]; then
     # symlink into ~/.local/bin (on PATH via setup.sh)
     mkdir -p "$HOME/.local/bin"
     if [[ -d "$INSTALL_PREFIX/bin" ]]; then
@@ -392,9 +435,12 @@ fi
 trap - ERR
 log "Done. $PROJECT_NAME @ $(git rev-parse --short HEAD 2>/dev/null || echo '?')"
 log "Acceleration: ${ACCEL_SUMMARY[*]:-CPU only}"
-log "Installed to: $INSTALL_PREFIX  |  log: $LOG_FILE"
-if [[ "$PLATFORM" == macos ]]; then
+if [[ "$PROJECT_KIND" == "ninfer" ]]; then
+    log "Binaries: ~/.local/bin/ninfer (CLI), ~/.local/bin/ninfer-serve |  log: $LOG_FILE"
+elif [[ "$PLATFORM" == macos ]]; then
+    log "Installed to: $INSTALL_PREFIX  |  log: $LOG_FILE"
     log "Binaries symlinked into ~/.local/bin (e.g. llama-cli, llama-server)."
 else
+    log "Installed to: $INSTALL_PREFIX  |  log: $LOG_FILE"
     log "Switch forks: update-alternatives --set llamacpp $INSTALL_PREFIX/bin/llama-server"
 fi
